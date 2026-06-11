@@ -282,7 +282,8 @@ ios_pair_device(){
   go-ios pair --udid="$1" --nojson &> /dev/null
   EXIT_CODE=$?
   if [ $EXIT_CODE -ne 0 ]; then
-    read -p "❌ Device is not paired - reconnect it, unlock screen, tap \"Trust\" and press ENTER..."
+    read -r -p "❌ Device is not paired - reconnect it, unlock screen, tap \"Trust\" and press ENTER..." \
+      || abort "❌ Device is not paired"
     ios_pair_device "$1"
   fi
 }
@@ -290,11 +291,13 @@ ios_pair_device(){
 ios_check_pairing(){
   go-ios info --udid="$1" &> "$TEMPORARY_FILE"
   if cat "$TEMPORARY_FILE" | grep -q 'UntrustedHostBUID' ; then
-    read -r -p "❌ Device is not paired - reconnect it, unlock screen, tap \"Trust\" and press ENTER..."
+    read -r -p "❌ Device is not paired - reconnect it, unlock screen, tap \"Trust\" and press ENTER..." \
+      || abort "❌ Device is not paired"
     ios_pair_device "$1"
   fi
   if cat "$TEMPORARY_FILE" | grep -q 'could not retrieve PairRecord' ; then
-    read -r -p "❌ Device is not paired - reconnect it, unlock screen, tap \"Trust\" and press ENTER..."
+    read -r -p "❌ Device is not paired - reconnect it, unlock screen, tap \"Trust\" and press ENTER..." \
+      || abort "❌ Device is not paired"
     ios_pair_device "$1"
   fi
 }
@@ -525,15 +528,15 @@ should_proceed(){
 choose_number(){
   MAX=$1
   if [ -n "$2" ]; then
-    read -r -p "$2" CHOICE
+    read -r -p "$2" CHOICE || abort "❌ No input available"
   else
-    read -r -p "📝 Choose number: " CHOICE
+    read -r -p "📝 Choose number: " CHOICE || abort "❌ No input available"
   fi
   while :;
   do
     if [[ -z $CHOICE  || $CHOICE -le 0 || $CHOICE -gt $MAX ]]; then
       delete_lastline
-      read -r -p "🤷‍ Invalid choice, try again: " CHOICE
+      read -r -p "🤷‍ Invalid choice, try again: " CHOICE || abort "❌ No input available"
     else
       ((++CHOICE))
       break
@@ -545,7 +548,7 @@ check_url(){
   URL=$1
 
   if [[ $URL == "" ]]; then
-    read -r -p "📝 Insert web url: " URL
+    read -r -p "📝 Insert web url: " URL || abort "❌ No input available"
     check_url "$URL"
   else
     case $1 in
