@@ -109,7 +109,7 @@ record_screen(){
   else
     FILENAME="$1.mp4"
   fi
-  if ! xcrun simctl io "$SIMULATOR_ID" recordVideo "$HOME/DESKTOP/$FILENAME"; then
+  if ! xcrun simctl io "$SIMULATOR_ID" recordVideo "$HOME/Desktop/$FILENAME"; then
     echo "❌ Recording failed!"
   else
     echo "✅ Video saved to ~/Desktop/$FILENAME"
@@ -164,7 +164,7 @@ set_battery_level(){
 set_time(){
   check_xcode_version
   if [[ -z "$1" ]]; then
-    read -r -p "📝 Enter battery level: " TIME
+    read -r -p "📝 Enter time (hh:mm): " TIME
     set_time "$TIME"
   else
     xcrun simctl status_bar "$SIMULATOR_ID" override --time "$1"

@@ -340,7 +340,7 @@ _Note: This tool targets macOS for compatibility, but most interactions should w
 ### 📱 aemulator
 **Required**: Make terminal use Android Studio Java
   * **Edit .bash_profile** (or .zshrc if you have zsh shell) `open -e ~/.bash_profile` or `open -e ~/.zshrc`
-  * **Add the following line at the end of the file** `export JAVA_HOME='/Applications/Android Studio.app/Contents/jre/jdk/Contents/Home'`
+  * **Add the following line at the end of the file** `export JAVA_HOME='/Applications/Android Studio.app/Contents/jbr/Contents/Home'`
 
 * Android emulator supports all listed scripts by default + extra actions listed below
 * `aemulator <option>` Handle various Android emulator activites
@@ -390,7 +390,7 @@ _Note: This tool targets macOS for compatibility, but most interactions should w
 <div id='section-id-241'/>
 
 ### 🎥 irecord
-**Required**: Install [videosnap](https://github.com/matthutchinson/videosnap/releases "videosnap") -> download and install `videosnap-0.0.8.pkg`<br>
+**Required**: Install [videosnap](https://github.com/matthutchinson/videosnap/releases "videosnap") -> download and install `videosnap-0.0.9.pkg`<br>
 **Required**: Install [ffmpeg](https://www.ffmpeg.org/ "ffmpeg") `brew install ffmpeg`
 
 1. `irecord` Record screen

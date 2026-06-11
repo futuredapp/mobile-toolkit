@@ -18,8 +18,8 @@ ctrlc(){
 check_videosnap_dependency(){ #TODO refactor when videosnap available via Homberew
   if ! [ -x "$(command -v "videosnap")" ]; then
     echo "💥 \"videosnap\" command required!"
-    should_proceed "🛒 Install via GitHub? (download and install \"videosnap-0.0.7.pkg\")"
-    open "https://github.com/matthutchinson/videosnap/releases/download/v0.0.7/videosnap-0.0.7.pkg"
+    should_proceed "🛒 Install via GitHub? (download and install \"videosnap-0.0.9.pkg\")"
+    open "https://github.com/matthutchinson/videosnap/releases/download/v0.0.9/videosnap-0.0.9.pkg"
     exit 1
   fi
 }
@@ -38,7 +38,9 @@ pick_recording_device(){
   ios_choose_device
   ios_device_info "$SELECTED_DEVICE"
   DEVICE_NAME=$(go-ios devicename --udid="$SELECTED_DEVICE" --nojson)
-  FILENAME="$MANUFACTURER-$MODEL-iOS$VERSION-$(date +%Y-%m-%d-%H-%M-%S).mp4"
+  SAFE_MODEL=${MODEL//[()]/}
+  SAFE_MODEL=${SAFE_MODEL// /-}
+  FILENAME="$MANUFACTURER-$SAFE_MODEL-iOS$VERSION-$(date +%Y-%m-%d-%H-%M-%S).mp4"
 }
 
 start_recording(){

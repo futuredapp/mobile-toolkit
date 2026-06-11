@@ -24,7 +24,7 @@ help(){
 check_java_dependency(){
   if ! java -version &> /dev/null; then
     echo "❌ Java not available, edit your .bash_profile or .zshrc to use Android Studio version"
-    echo "📝 Add the following line: export JAVA_HOME='/Applications/Android Studio.app/Contents/jre/jdk/Contents/Home'"
+    echo "📝 Add the following line: export JAVA_HOME='/Applications/Android Studio.app/Contents/jbr/Contents/Home'"
     echo "🔌 Restart terminal afterwards"
     exit 1
   fi
@@ -80,7 +80,7 @@ launch_emulator(){
 
 get_token(){
   check_dependency "telnet"
-  [ -f ./emulator_console_auth_token ] || echo "localhost 5554" | telnet &> /dev/null
+  [ -f "$HOME"/.emulator_console_auth_token ] || echo "localhost 5554" | telnet &> /dev/null
   TOKEN=$(cat "$HOME"/.emulator_console_auth_token)
 }
 
