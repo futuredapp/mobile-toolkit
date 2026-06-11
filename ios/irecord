@@ -1,76 +1,49 @@
 #!/bin/bash
 LOCATION=$(dirname "$0")
 source "$LOCATION"/../common_tools
-trap 'ctrlc $@' 1 2 3 6 15
 
-RECORDING=false
-cd ~/Desktop || exit
+# Records the device screen via go-ios MJPEG screenshot stream piped into ffmpeg.
+# Frame rate is ~6 fps (screenshot based) - use "iquicktime" when you need smooth video.
 
-ctrlc(){
-  osascript -e 'quit app "QuickTime Player"'
-  if $RECORDING ; then
-    compress_video "$FILENAME"
-    echo "✅ Saved into ~/Desktop/$FILENAME"
-  fi
-  exit
-}
+check_dependency "ffmpeg"
+ios_choose_device
+ios_device_info "$SELECTED_DEVICE"
 
-check_videosnap_dependency(){ #TODO refactor when videosnap available via Homberew
-  if ! [ -x "$(command -v "videosnap")" ]; then
-    echo "💥 \"videosnap\" command required!"
-    should_proceed "🛒 Install via GitHub? (download and install \"videosnap-0.0.9.pkg\")"
-    open "https://github.com/matthutchinson/videosnap/releases/download/v0.0.9/videosnap-0.0.9.pkg"
-    exit 1
-  fi
-}
-
-start_quicktime(){
-	echo "🎬 Initializing QuickTime (webcam LED might turn on)..."
-	osascript <<EOD
-	tell application "QuickTime Player"
-		set newMovieRecording to new movie recording
-		set miniaturized of window 1 to true
-	end tell
-EOD
-}
-
-pick_recording_device(){
-  ios_choose_device
-  ios_device_info "$SELECTED_DEVICE"
-  DEVICE_NAME=$(go-ios devicename --udid="$SELECTED_DEVICE" --nojson)
+if [ -z "$1" ]; then
   SAFE_MODEL=${MODEL//[()]/}
   SAFE_MODEL=${SAFE_MODEL// /-}
-  FILENAME="$MANUFACTURER-$SAFE_MODEL-iOS$VERSION-$(date +%Y-%m-%d-%H-%M-%S).mp4"
-}
+  FILENAME="$MANUFACTURER-$SAFE_MODEL-iOS$VERSION-$(date +%Y-%m-%d-%H-%M-%S)"
+else
+  FILENAME="$1"
+fi
+OUTPUT_PATH=~/Desktop/"$FILENAME".mp4
 
-start_recording(){
-  RECORDING=true
-  echo "📹 Recording screen on $SELECTED_DEVICE ($DEVICE_NAME), stop it using ctrl^c"
-  videosnap -p High -d "$DEVICE_NAME" "$FILENAME" &> /dev/null
-}
+# Find a free port for the local MJPEG stream server
+STREAM_PORT=3333
+while lsof -i ":$STREAM_PORT" &> /dev/null; do
+  STREAM_PORT=$((STREAM_PORT+1))
+done
 
-compress_video(){
-  if test -f "$1" ; then
-    echo "📦 Compressing video..."
-    ffmpeg -i "$1" "LQ-$1" -hide_banner -loglevel error #ultra basic ffmpeg compression
-    rm "$1" && mv "LQ-$1" "$1"
-  else
-    echo "❌ Video not captured possibly due to short recording time..."
-    osascript -e 'quit app "QuickTime Player"'
-    exit 1
-  fi
-}
+go-ios screenshot --stream --port="$STREAM_PORT" --udid="$SELECTED_DEVICE" &> /dev/null &
+STREAM_PID=$!
+trap 'kill $STREAM_PID &> /dev/null' EXIT
+sleep 2
 
-if uname -m | grep -q arm64 ; then
-  echo "🤕 This script is currently not working on M1 based macs"
-  echo "🔗 See https://github.com/matthutchinson/videosnap/issues/24"
-  echo "🩹 You can use \"iquicktime\" temporarily instead"
+echo "📹 Recording screen on $SELECTED_DEVICE ($MODEL), stop it using ctrl^c"
+echo "💡 Recording is ~6 fps - use \"iquicktime\" when you need smooth high-fps video"
+
+# ctrl^c stops ffmpeg (which finalizes the file); keep the script alive to report the result
+trap 'true' INT
+ffmpeg -y -hide_banner -loglevel error \
+  -use_wallclock_as_timestamps 1 -f mjpeg -i "http://localhost:$STREAM_PORT/" \
+  -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" \
+  -c:v libx264 -preset veryfast -pix_fmt yuv420p "$OUTPUT_PATH"
+trap - INT
+
+if [ -f "$OUTPUT_PATH" ]; then
+  echo "✅ Saved into ~/Desktop/$FILENAME.mp4"
+else
+  echo "❌ Recording failed - if the device is connected, try restarting the go-ios tunnel:"
+  echo "   pkill -f \"go-ios tunnel\" and run irecord again"
   exit 1
 fi
-
-check_videosnap_dependency
-check_dependency "ffmpeg"
-
-start_quicktime
-pick_recording_device
-start_recording

@@ -15,6 +15,9 @@
 
     🔊 atalkback works again on current TalkBack versions and turns off cleanly
 
+    🎥 irecord works again - on Apple Silicon and iOS 17+ (rebuilt on go-ios screenshot
+    streaming, ~6 fps; use iquicktime for smooth high-fps footage; videosnap no longer needed)
+
     📹 arecord/isimulator recording fixes, aemulator setup fixes (JAVA_HOME, auth token)
 
     🔄 The update check no longer aborts the command you just ran
