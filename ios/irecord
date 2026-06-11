@@ -24,20 +24,36 @@ while lsof -i ":$STREAM_PORT" &> /dev/null; do
   STREAM_PORT=$((STREAM_PORT+1))
 done
 
-go-ios screenshot --stream --port="$STREAM_PORT" --udid="$SELECTED_DEVICE" &> /dev/null &
+STREAM_LOG="$TEMPORARY_FILE-irecord-$$"
+go-ios screenshot --stream --port="$STREAM_PORT" --udid="$SELECTED_DEVICE" > "$STREAM_LOG" 2>&1 &
 STREAM_PID=$!
-trap 'kill $STREAM_PID &> /dev/null' EXIT
-sleep 2
+trap 'kill $STREAM_PID &> /dev/null; rm -f "$STREAM_LOG"' EXIT
+
+# go-ios <= 1.2.0 ignores --port and always binds its default - read the real port from the log
+ACTUAL_PORT=""
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  sleep 0.5
+  ACTUAL_PORT=$(sed -n 's/.*"port":"\([0-9]*\)".*/\1/p' "$STREAM_LOG" | head -1)
+  [ -n "$ACTUAL_PORT" ] && break
+done
+if [ -z "$ACTUAL_PORT" ]; then
+  echo "❌ Stream server failed to start:"
+  tail -3 "$STREAM_LOG"
+  echo "💡 If the device is connected, try restarting the go-ios tunnel: pkill -f \"go-ios tunnel\""
+  exit 1
+fi
 
 echo "📹 Recording screen on $SELECTED_DEVICE ($MODEL), stop it using ctrl^c"
 echo "💡 Recording is ~6 fps - use \"iquicktime\" when you need smooth high-fps video"
 
+# The MJPEG stream carries no timestamps - stamp frames with the wallclock as they arrive,
+# otherwise the video plays several times faster than reality
 # ctrl^c stops ffmpeg (which finalizes the file); keep the script alive to report the result
 trap 'true' INT
 ffmpeg -y -hide_banner -loglevel error \
-  -use_wallclock_as_timestamps 1 -f mjpeg -i "http://localhost:$STREAM_PORT/" \
-  -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" \
-  -c:v libx264 -preset veryfast -pix_fmt yuv420p "$OUTPUT_PATH"
+  -f mjpeg -i "http://localhost:$ACTUAL_PORT/" \
+  -vf "setpts='(RTCTIME-RTCSTART)/(TB*1000000)',scale=trunc(iw/2)*2:trunc(ih/2)*2" \
+  -fps_mode vfr -c:v libx264 -preset veryfast -pix_fmt yuv420p "$OUTPUT_PATH"
 trap - INT
 
 if [ -f "$OUTPUT_PATH" ]; then
