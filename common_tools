@@ -302,7 +302,21 @@ ios_check_pairing(){
   fi
 }
 
+ios_check_developer_mode(){
+  # On iOS 16+ the developer disk image cannot be mounted while Developer Mode is off
+  # (Apple's TSS then rejects the signature with a misleading "not eligible" error)
+  DEV_MODE=$( (go-ios devmode get --udid="$1") 2>/dev/null)
+  if [[ $DEV_MODE == *'"DeveloperModeEnabled":false'* ]]; then
+    go-ios devmode reveal --udid="$1" &> /dev/null
+    echo "❌ Developer Mode is turned off on this device"
+    echo "📱 Turn it on: Settings → Privacy & Security → Developer Mode → enable → restart the device"
+    echo "   (the Developer Mode menu has just been revealed in Settings for you)"
+    abort "🔄 Then reconnect the device and run the command again"
+  fi
+}
+
 ios_check_developer_image(){
+  ios_check_developer_mode "$1"
   IS_MOUNTED=$( (go-ios image list --udid="$1" --nojson) 2>&1)
   if [[ $IS_MOUNTED == *"none"* ]]; then
     echo "⏳ Mounting developer disk image (downloads it on first use, requires internet)..."
