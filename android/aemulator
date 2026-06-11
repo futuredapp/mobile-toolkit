@@ -142,6 +142,7 @@ set_gps(){
 }
 
 set_battery_level(){
+  get_token
   if [ -z "$1" ];then
     read -r -p "📝 Insert battery level: " LEVEL
   else
@@ -153,6 +154,7 @@ set_battery_level(){
 }
 
 set_network_delay(){
+  get_token
   DELAY=$1
   if [[ "$DELAY" == "3g" ]]; then
     DELAY="umts"
