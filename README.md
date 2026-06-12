@@ -93,7 +93,7 @@
 _Note: This tool targets macOS for compatibility, but most interactions should work on any Unix system._
 <br>
 1. **Open terminal**
-2. **Clone this repository** `git clone https://github.com/IntergalacticPenguin/mobile-toolkit.git`
+2. **Clone this repository** `git clone https://github.com/futuredapp/mobile-toolkit.git`
 3. **Setup Android tools**
 	* **[Download](https://developer.android.com/studio/ "Android Studio") and install Android Studio** and **Android command line tools** (using Android Studio SDK manager)
 	* **Edit .zshrc** (or .bash_profile if you have bash shell) `open -e ~/.zshrc`
@@ -494,7 +494,11 @@ _Note: This tool targets macOS for compatibility, but most interactions should w
 
 <strong>Feedback & Contribution</strong><br>
 
-<sup>⁉️ [Submit an issue](https://github.com/IntergalacticPenguin/mobile-toolkit/issues/new/choose) to report any bugs, request a feature or ask questions.</sup><br>
-<sup>🤝 [Pull requests](https://github.com/IntergalacticPenguin/mobile-toolkit/blob/master/.github/CONTRIBUTING.md "contribution rules") are highly **appreciated**, see the [issue board](https://github.com/IntergalacticPenguin/mobile-toolkit/projects/3).</sup><br>
-<sup>💬 Also <strong>visit my [NoMo](https://github.com/IGPenguin/nomo)</strong> project and leave a star.</sup><br>
-<sup>🔗 Find me on [LinkedIn](https://www.linkedin.com/in/intergalacticpenguin/) or [Twitter](https://twitter.com/IGPenguin).</sup><br>
+<sup>⁉️ [Submit an issue](https://github.com/futuredapp/mobile-toolkit/issues/new/choose) to report any bugs, request a feature or ask questions.</sup><br>
+<sup>🤝 [Pull requests](https://github.com/futuredapp/mobile-toolkit/blob/master/.github/CONTRIBUTING.md "contribution rules") are highly **appreciated**.</sup><br>
+
+----
+
+<strong>Credits</strong><br>
+
+<sup>⭐️ Built on the original [mobile-toolkit](https://github.com/IGPenguin/mobile-toolkit) by <strong>Adam Svoboda</strong> ([IGPenguin](https://github.com/IGPenguin)) — thanks, mate! Now maintained by [Futured](https://github.com/futuredapp).</sup><br>
