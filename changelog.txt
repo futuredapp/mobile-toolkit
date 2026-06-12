@@ -1,4 +1,11 @@
-  🛠 This is a maintenance release 1.4.2 - over a dozen long-standing bugs fixed!
+  🛠 Release 1.4.3 - groundwork for Homebrew installation
+
+    📦 Runtime state (caches, device lists) now lives in ~/.local/state instead of
+    inside the toolkit folder - so the toolkit can be installed read-only (Homebrew)
+
+    🔜 Coming next: install via "brew install" - no more editing your PATH by hand
+
+  🛠 Release 1.4.2 - over a dozen long-standing bugs fixed!
 
     🍏 go-ios is now installed as a pinned, checksum-verified release binary (v1.2.0)
     Existing installations are offered the update automatically - no Go toolchain needed anymore
