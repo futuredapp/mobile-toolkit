@@ -1,3 +1,11 @@
+  🛠 Release 1.4.5 - security cleanup + tunnel hygiene
+
+    🔐 Removed a go-ios tunnel identity file that was accidentally committed
+    during development. The tunnel now stores its identity and pairing records
+    in ~/.local/state instead of the current directory, so it can't happen again
+    (this also avoids the macOS 26 lockdown-path block). Run "brew upgrade
+    mobile-toolkit" to clear it from your install.
+
   🛠 Release 1.4.4 - now installable via Homebrew + irecord timing fix
 
     🍺 Install with "brew install" - no more editing your PATH by hand:
