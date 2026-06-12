@@ -1,3 +1,13 @@
+  🛠 Release 1.4.4 - now installable via Homebrew + irecord timing fix
+
+    🍺 Install with "brew install" - no more editing your PATH by hand:
+       brew tap futuredapp/mobile-toolkit
+       brew trust futuredapp/mobile-toolkit
+       brew install mobile-toolkit
+
+    🎥 irecord now plays back in real time (it was compressing recordings of
+    screens that change in bursts), and waits for the stream to be ready first
+
   🛠 Release 1.4.3 - groundwork for Homebrew installation
 
     📦 Runtime state (caches, device lists) now lives in ~/.local/state instead of
