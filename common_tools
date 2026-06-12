@@ -5,7 +5,11 @@
 ### VARs
 
 SCRIPT_LOCATION=$(dirname "$0")
-LAST_CHECK_DATE_FILE="$SCRIPT_LOCATION/../data/toolkit_last_check_date.txt"
+# Runtime state lives in the user's state dir, not inside the install location -
+# this keeps the toolkit working when installed read-only (e.g. via Homebrew).
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mobile-toolkit"
+mkdir -p "$STATE_DIR" 2>/dev/null
+LAST_CHECK_DATE_FILE="$STATE_DIR/last_check_date.txt"
 TEMPORARY_FILE="/private/tmp/mobile-toolkit-cache"
 
 REGEX_NUMBER='^[0-9]+$'
@@ -30,7 +34,7 @@ android_wait_for_device(){
 }
 
 android_get_devices_auth_dump(){
-  DEVICES_DUMP="$SCRIPT_LOCATION/../data/toolkit_adb_devices_dump.txt"
+  DEVICES_DUMP="$STATE_DIR/adb_devices_dump.txt"
   rm -f "$DEVICES_DUMP"
   adb devices | grep -v "List" >> "$DEVICES_DUMP"
   if cat "$DEVICES_DUMP" | grep -q unauthorized ; then
@@ -192,7 +196,7 @@ check_go_ios_version(){
   fi
 
   # Offer the pinned version at most once per pin, and only on an interactive terminal
-  GO_IOS_OFFERED_FILE="$SCRIPT_LOCATION/../data/toolkit_go_ios_offered.txt"
+  GO_IOS_OFFERED_FILE="$STATE_DIR/go_ios_offered.txt"
   if ! [ -t 0 ] || { [ -f "$GO_IOS_OFFERED_FILE" ] && [ "$(cat "$GO_IOS_OFFERED_FILE")" == "$GO_IOS_PINNED_VERSION" ]; }; then
     return
   fi
@@ -309,7 +313,7 @@ ios_check_developer_image(){
   IS_MOUNTED=$( (go-ios image list --udid="$1" --nojson) 2>&1)
   if [[ $IS_MOUNTED == *"none"* ]]; then
     echo "⏳ Mounting developer disk image (downloads it on first use, requires internet)..."
-    go-ios image auto --udid="$1" --basedir="$SCRIPT_LOCATION/../data/toolkit_devimages" &> "$TEMPORARY_FILE"
+    go-ios image auto --udid="$1" --basedir="$STATE_DIR/devimages" &> "$TEMPORARY_FILE"
     IS_MOUNTED=$( (go-ios image list --udid="$1" --nojson) 2>&1)
     if [[ $IS_MOUNTED == *"none"* ]]; then
       echo "❌ Mounting failed:"
@@ -409,7 +413,7 @@ ios_translate_name(){
   fi
 
   if [ -z "$NAME" ] && command -v jq &> /dev/null; then
-    APPLEDB_CACHE="$SCRIPT_LOCATION/../data/toolkit_appledb_devices.json"
+    APPLEDB_CACHE="$STATE_DIR/appledb_devices.json"
     APPLEDB_FAILED_STAMP="$APPLEDB_CACHE.failed"
     # Retry a failed download at most once per day to avoid stalling every command while offline
     if ! [ -f "$APPLEDB_CACHE" ] && [ "$(cat "$APPLEDB_FAILED_STAMP" 2>/dev/null)" != "$(date +%Y-%m-%d)" ]; then
@@ -463,8 +467,10 @@ check_for_update(){
   fi
 
   CURRENT_DIR="$PWD"
-  cd "$SCRIPT_LOCATION/.." || exit
-  CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+  cd "$SCRIPT_LOCATION/.." || return
+  # When installed via Homebrew the toolkit is not a git checkout - skip the
+  # git-based self-update silently (Homebrew handles updates via "brew upgrade").
+  CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 
   if [[ "$CURRENT_BRANCH" == "master" && "$LAST_CHECK_DATE" != "$TODAY" ]]; then
     echo "🔄 Checking for Mobile Toolkit update..."
