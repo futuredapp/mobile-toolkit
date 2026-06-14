@@ -16,8 +16,10 @@ filter_by_package(){
   if [ $# -eq 1 ]; then
     adb -s "$SELECTED_DEVICE" logcat --pid="$1"
   else
-    # App has multiple processes - logcat --pid takes only one, filter on the PID column instead
-    adb -s "$SELECTED_DEVICE" logcat | awk -v pids="$PIDS" 'BEGIN{n=split(pids,a," "); for(i=1;i<=n;i++) p[a[i]]=1} p[$3]'
+    # App has multiple processes - logcat --pid takes only one, filter on the PID
+    # column instead. Force -v threadtime so the PID is always field 3 (otherwise
+    # a custom ANDROID_PRINTF_LOG format would silently match nothing).
+    adb -s "$SELECTED_DEVICE" logcat -v threadtime | awk -v pids="$PIDS" 'BEGIN{n=split(pids,a," "); for(i=1;i<=n;i++) p[a[i]]=1} p[$3]'
   fi
 }
 

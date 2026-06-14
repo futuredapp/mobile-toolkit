@@ -7,15 +7,23 @@ LOCAL_SETTINGS_LIST_PATH=$STATE_DIR/intent_list.txt
 
 import_intents(){
   echo "⏳ Importing settings activity list..."
-  ANDROID_TOOLS_SETTINGS_INTENT_LIST_PATH=$(find ~/Library/Android/sdk -name 'activity_actions.txt' | sort | tail -1)
-  {
-    grep -i "android.settings" "$ANDROID_TOOLS_SETTINGS_INTENT_LIST_PATH" # List settings intents
-    grep -i -e "android.net.wifi.PICK_WIFI_NETWORK" -e "android.os.storage.action.MANAGE_STORAGE" -e "android.intent.action.MANAGE_PERMISSIONS" -e "android.intent.action.SET_WALLPAPER" -e "android.intent.action.VIEW_DOWNLOADS" "$ANDROID_TOOLS_SETTINGS_INTENT_LIST_PATH" # List alternate settings intents
-    grep -i "android.media.action" "$ANDROID_TOOLS_SETTINGS_INTENT_LIST_PATH" # List media intents
-  } >> "$LOCAL_SETTINGS_LIST_PATH"
-
-  wc -l "$LOCAL_SETTINGS_LIST_PATH" | awk '{print $1}' | grep -q 0 && echo "❗️ Imported list is empty, reimporting lower sdk variant..." && rm "$(find ~/Library/Android/sdk -name 'activity_actions.txt' | sort | tail -1)" && import_intents && return
-  echo "✅ Importing from $ANDROID_TOOLS_SETTINGS_INTENT_LIST_PATH completed successfully"
+  : > "$LOCAL_SETTINGS_LIST_PATH"
+  # Try the SDK's activity_actions.txt files newest-first; stop at the first one
+  # that yields intents. NEVER delete files inside the user's SDK (the old code
+  # rm'd the highest-SDK file and its "empty" test was a `grep 0` substring match
+  # that fired on any line count containing a 0, e.g. 130 or 200).
+  while IFS= read -r ANDROID_TOOLS_SETTINGS_INTENT_LIST_PATH; do
+    {
+      grep -i "android.settings" "$ANDROID_TOOLS_SETTINGS_INTENT_LIST_PATH" # settings intents
+      grep -i -e "android.net.wifi.PICK_WIFI_NETWORK" -e "android.os.storage.action.MANAGE_STORAGE" -e "android.intent.action.MANAGE_PERMISSIONS" -e "android.intent.action.SET_WALLPAPER" -e "android.intent.action.VIEW_DOWNLOADS" "$ANDROID_TOOLS_SETTINGS_INTENT_LIST_PATH" # alternate settings intents
+      grep -i "android.media.action" "$ANDROID_TOOLS_SETTINGS_INTENT_LIST_PATH" # media intents
+    } >> "$LOCAL_SETTINGS_LIST_PATH" 2>/dev/null
+    if [ -s "$LOCAL_SETTINGS_LIST_PATH" ]; then
+      echo "✅ Importing from $ANDROID_TOOLS_SETTINGS_INTENT_LIST_PATH completed successfully"
+      return
+    fi
+  done < <(find ~/Library/Android/sdk -name 'activity_actions.txt' 2>/dev/null | sort -r)
+  echo "❗️ No settings intents found in the Android SDK (is it installed?)"
 }
 
 start_settings_intent(){

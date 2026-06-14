@@ -118,10 +118,17 @@ android_get_foreground_package(){
   # the old per-SDK "dumpsys activity recents" field-counting broke whenever the
   # Task{...} format shifted (e.g. it returned "cz.app}" with a trailing brace).
   # Primary source: the resumed activity; fallback: the focused window.
-  local PKG
-  PKG=$(adb -s "$SELECTED_DEVICE" shell dumpsys activity activities 2>/dev/null \
-        | grep -E 'mResumedActivity|topResumedActivity' \
-        | grep -oE '[a-zA-Z0-9_.]+/[a-zA-Z0-9_.$]+' | head -1 | cut -d/ -f1)
+  local DUMP PKG KEY
+  DUMP=$(adb -s "$SELECTED_DEVICE" shell dumpsys activity activities 2>/dev/null)
+  # Prefer mResumedActivity (the real focused activity) over topResumedActivity;
+  # the package/activity regex already drops "null" lines that multi-display /
+  # foldable devices emit per display. (OEM-skin multi-display parsing needs a
+  # real device to fully harden - see OVERIT spike S2.)
+  for KEY in mResumedActivity topResumedActivity; do
+    PKG=$(echo "$DUMP" | grep "$KEY" \
+          | grep -oE '[a-zA-Z0-9_.]+/[a-zA-Z0-9_.$]+' | head -1 | cut -d/ -f1)
+    [ -n "$PKG" ] && break
+  done
   if [ -z "$PKG" ]; then
     PKG=$(adb -s "$SELECTED_DEVICE" shell dumpsys window displays 2>/dev/null \
           | grep 'mCurrentFocus' | grep -v 'null' \
@@ -131,7 +138,9 @@ android_get_foreground_package(){
 }
 
 android_get_storage_location_per_SDK(){
-  if (( "$1" < 30 )); then
+  # Guard against an empty SDK (device disconnected mid-run) - bare (( "" < 30 ))
+  # throws a syntax error to stderr; default to the modern path instead.
+  if [ -n "$1" ] && [ "$1" -lt 30 ] 2>/dev/null; then
     DEVICE_FILE_PATH="/mnt/sdcard"
   else
     DEVICE_FILE_PATH="/storage/self/primary"
@@ -259,7 +268,11 @@ ios_get_devices(){
   check_go_ios_version
   check_dependency "jq"
 
-  if [[ $(ps S | grep -c "go-ios tunnel") -ne 2 ]]; then
+  # Start a tunnel only if none is already running. pgrep -f matches the real
+  # process by its full argv (and never matches itself), unlike the old
+  # "ps | grep -c == 2" heuristic which mis-counted in non-tty/CI contexts and
+  # stacked duplicate tunnels when a stale one was alive.
+  if ! pgrep -f "go-ios tunnel start" >/dev/null 2>&1; then
     echo "♻️ Launching go-ios tunnel for maximum iOS compatibility (17+)"
     # --pair-record-path keeps the tunnel self-identity and pairing records in
     # the state dir instead of the current directory (where they would otherwise
@@ -286,17 +299,17 @@ ios_pair_device(){
 }
 
 ios_check_pairing(){
-  go-ios info --udid="$1" &> "$TEMPORARY_FILE"
-  if cat "$TEMPORARY_FILE" | grep -q 'UntrustedHostBUID' ; then
+  # local temp file so parallel "-a" runs (e.g. iscreenshot -a) don't clobber it
+  local PAIR_TMP; PAIR_TMP=$(mktemp)
+  go-ios info --udid="$1" &> "$PAIR_TMP"
+  if grep -q 'UntrustedHostBUID' "$PAIR_TMP" || grep -q 'could not retrieve PairRecord' "$PAIR_TMP" ; then
+    rm -f "$PAIR_TMP"
     read -r -p "❌ Device is not paired - reconnect it, unlock screen, tap \"Trust\" and press ENTER..." \
       || abort "❌ Device is not paired"
     ios_pair_device "$1"
+    return
   fi
-  if cat "$TEMPORARY_FILE" | grep -q 'could not retrieve PairRecord' ; then
-    read -r -p "❌ Device is not paired - reconnect it, unlock screen, tap \"Trust\" and press ENTER..." \
-      || abort "❌ Device is not paired"
-    ios_pair_device "$1"
-  fi
+  rm -f "$PAIR_TMP"
 }
 
 ios_check_developer_mode(){
@@ -317,11 +330,12 @@ ios_check_developer_image(){
   IS_MOUNTED=$( (go-ios image list --udid="$1" --nojson) 2>&1)
   if [[ $IS_MOUNTED == *"none"* ]]; then
     echo "⏳ Mounting developer disk image (downloads it on first use, requires internet)..."
-    go-ios image auto --udid="$1" --basedir="$STATE_DIR/devimages" &> "$TEMPORARY_FILE"
+    local MOUNT_TMP; MOUNT_TMP=$(mktemp)
+    go-ios image auto --udid="$1" --basedir="$STATE_DIR/devimages" &> "$MOUNT_TMP"
     IS_MOUNTED=$( (go-ios image list --udid="$1" --nojson) 2>&1)
     if [[ $IS_MOUNTED == *"none"* ]]; then
       echo "❌ Mounting failed:"
-      tail -3 "$TEMPORARY_FILE"
+      tail -3 "$MOUNT_TMP"; rm -f "$MOUNT_TMP"
       yes_or_no "🔁 Unlock the device screen, check your internet connection and retry?"
       if [[ "$RESPONSE" == "y" || "$RESPONSE" == "Y" ]]; then
         ios_check_developer_image "$1"
@@ -329,6 +343,7 @@ ios_check_developer_image(){
         abort "❌ Developer disk image is required for this command"
       fi
     fi
+    rm -f "$MOUNT_TMP"
   fi
 }
 
@@ -337,12 +352,24 @@ ios_check_developer_image_and_pairing(){
   ios_check_developer_image "$1"
 }
 
+# Full readiness for the SELECTED device: pairing + Developer Mode + DDI mount,
+# then model/version. Use this before operating on a device.
 ios_device_info(){
   ios_check_developer_image_and_pairing "$1"
+  ios_device_brief "$1"
+}
+
+# Lightweight info for the device PICKER: pairing + model/version only. No
+# Developer-Mode/DDI checks - those run on the selected device only, so a
+# non-selected device with Developer Mode off can't abort the whole list.
+ios_device_brief(){
+  ios_check_pairing "$1"
   MANUFACTURER="Apple"
-  go-ios info --udid="$1" > "$TEMPORARY_FILE"
-  MODEL=$(ios_translate_name "$(cat "$TEMPORARY_FILE" | jq -r '.ProductType')")
-  VERSION=$(cat "$TEMPORARY_FILE" | jq -r '.ProductVersion')
+  local INFO_TMP; INFO_TMP=$(mktemp)
+  go-ios info --udid="$1" > "$INFO_TMP"
+  MODEL=$(ios_translate_name "$(jq -r '.ProductType' "$INFO_TMP")")
+  VERSION=$(jq -r '.ProductVersion' "$INFO_TMP")
+  rm -f "$INFO_TMP"
   INFO=$(printf "%s) %s %s %s - %s" "$NUMBER" "$MANUFACTURER" "$MODEL" "$VERSION" "$ID")
 }
 
@@ -362,7 +389,7 @@ ios_choose_device(){
      echo "📱 Available devices:"
      for ID in "${IOS_USB_DEVICES[@]}"
       do
-        ios_device_info "$ID"
+        ios_device_brief "$ID"
         echo "$INFO"
         ((NUMBER++))
       done
@@ -381,6 +408,11 @@ ios_choose_device(){
   else
      SELECTED_DEVICE="${IOS_USB_DEVICES[0]}"
   fi
+
+  # Heavy readiness (Developer Mode + DDI mount) runs only on the chosen device,
+  # not on every device during listing - so one other connected device with
+  # Developer Mode off can't abort the command before you even pick.
+  ios_check_developer_image_and_pairing "$SELECTED_DEVICE"
 }
 
 ios_get_installed_package_list(){

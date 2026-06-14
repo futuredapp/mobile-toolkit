@@ -21,7 +21,14 @@ turn_off_talkback(){
 
 turn_on_talkback(){
   echo "🔊 Turning on TalkBack..."
-  adb -s "$1" shell settings put secure enabled_accessibility_services "$TALKBACK_SERVICE" &> /dev/null
+  # Append TalkBack to the existing services instead of overwriting them, so other
+  # enabled accessibility tools (Switch Access, vendor/3rd-party readers) survive.
+  if [ -z "$TALKBACK_STATE" ] || [ "$TALKBACK_STATE" == "null" ]; then
+    NEW_SERVICES="$TALKBACK_SERVICE"
+  else
+    NEW_SERVICES="$TALKBACK_STATE:$TALKBACK_SERVICE"
+  fi
+  adb -s "$1" shell settings put secure enabled_accessibility_services "$NEW_SERVICES" &> /dev/null
   adb -s "$1" shell settings put secure accessibility_enabled 1 &> /dev/null
 }
 
